@@ -1,0 +1,130 @@
+hostname ISP
+!
+!
+vrf definition ISP-A
+ rd 100:1
+ route-target export 100:100
+ route-target import 100:100
+ !        
+ address-family ipv4
+ exit-address-family
+!
+vrf definition ISP-B
+ rd 100:2
+ route-target export 100:100
+ route-target import 100:100
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!
+!
+!
+!
+no ip domain lookup
+!
+!
+!
+spanning-tree extend system-id
+!
+!
+redundancy
+ mode none
+!
+!
+! 
+! 
+!
+!
+interface Loopback0
+ ip address 2.2.2.2 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ vrf forwarding ISP-A
+ ip address 10.202.10.1 255.255.255.252
+ negotiation auto
+ mpls ip
+ mpls label protocol ldp
+!
+interface GigabitEthernet0/0/1
+ vrf forwarding ISP-B
+ ip address 10.202.20.1 255.255.255.252
+ negotiation auto
+ mpls ip
+ mpls label protocol ldp
+!
+interface GigabitEthernet0/0/2
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0
+ vrf forwarding Mgmt-intf
+ ip dhcp client client-id ascii FLM242611XC
+ ip address dhcp
+ shutdown
+ negotiation auto
+!
+router bgp 65535
+ bgp router-id 2.2.2.2
+ bgp log-neighbor-changes
+ !
+ address-family ipv4 vrf ISP-A
+  network 2.2.2.2 mask 255.255.255.255
+  network 10.202.10.0 mask 255.255.255.252
+  neighbor 10.202.10.2 remote-as 64612
+  neighbor 10.202.10.2 activate
+  neighbor 10.202.10.2 send-community
+ exit-address-family
+ !
+ address-family ipv4 vrf ISP-B
+  network 2.2.2.2 mask 255.255.255.255
+  network 10.202.20.0 mask 255.255.255.252
+  neighbor 10.202.20.2 remote-as 64612
+  neighbor 10.202.20.2 activate
+  neighbor 10.202.20.2 send-community
+ exit-address-family
+!
+ip forward-protocol nd
+ip http server
+ip http authentication local
+ip http secure-server
+ip http client source-interface GigabitEthernet0
+!
+ip bgp-community new-format
+!
+!
+!
+!         
+mpls ldp router-id Loopback0 force
+!
+!
+!
+control-plane
+!
+!
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+ stopbits 1
+line aux 0
+ stopbits 1
+line vty 0 4
+ login
+!
+!
+!
+!
+!
+!
+end

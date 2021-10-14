@@ -1,0 +1,155 @@
+hostname Oshawa
+!
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !        
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!
+!
+!
+!
+no ip domain lookup
+!
+! 
+!
+spanning-tree extend system-id
+!
+!
+redundancy
+ mode none
+!
+!
+!
+!
+!
+!
+crypto isakmp policy 12
+ encryption aes 256
+ hash sha512
+ authentication pre-share
+ group 14
+crypto isakmp key BSN12 address 0.0.0.0        
+!
+!
+crypto ipsec transform-set BSN12_TRANS esp-aes 256 esp-sha512-hmac 
+ mode transport
+!
+crypto ipsec profile BSN12_PROFILE
+ set transform-set BSN12_TRANS 
+!
+!
+!
+!
+!         
+!
+! 
+! 
+!
+!
+interface Loopback0
+ ip address 4.4.4.4 255.255.255.255
+!
+interface Loopback100
+ ip address 172.16.4.1 255.255.255.0
+ ip nat inside
+!
+interface Loopback101
+ ip address 172.16.41.1 255.255.255.0
+!
+interface Loopback102
+ ip address 172.16.42.1 255.255.255.0
+!
+interface Loopback103
+ ip address 172.16.43.1 255.255.255.0
+!
+interface Tunnel1
+ bandwidth 1000000
+ ip address 10.1.12.3 255.255.255.0
+ no ip redirects
+ ip nhrp authentication BSN
+ ip nhrp map multicast 192.0.2.12
+ ip nhrp map 10.1.12.1 192.0.2.12
+ ip nhrp network-id 12
+ ip nhrp nhs 10.1.12.1
+ delay 10
+ tunnel source GigabitEthernet0/0/1
+ tunnel mode gre multipoint
+ tunnel key 12
+ tunnel protection ipsec profile BSN12_PROFILE
+!
+interface GigabitEthernet0/0/0
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0/0/1
+ ip address 203.0.113.12 255.255.255.0
+ ip nat outside
+ negotiation auto
+!         
+interface GigabitEthernet0/0/2
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface GigabitEthernet0
+ vrf forwarding Mgmt-intf
+ ip dhcp client client-id ascii FLM242611YJ
+ ip address dhcp
+ shutdown
+ negotiation auto
+!
+!
+router eigrp OntarioTech12
+ !
+ address-family ipv4 unicast autonomous-system 12
+  !
+  topology base
+  exit-af-topology
+  network 10.1.12.0 0.0.0.255
+  network 172.16.0.0
+  eigrp router-id 4.4.4.4
+ exit-address-family
+!
+ip forward-protocol nd
+ip http server
+ip http authentication local
+ip http secure-server
+ip http client source-interface GigabitEthernet0
+ip nat inside source list 1 interface GigabitEthernet0/0/1 overload
+ip route 0.0.0.0 0.0.0.0 203.0.113.254
+!
+!
+!
+ip access-list standard 1
+ 10 permit 172.16.0.0 0.0.255.255
+!
+!
+!
+!
+!
+control-plane
+!
+!
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+ stopbits 1
+line aux 0
+ stopbits 1
+line vty 0 4
+ login
+!
+!
+!
+!
+!
+!
+end

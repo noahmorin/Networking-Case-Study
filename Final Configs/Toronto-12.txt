@@ -1,0 +1,204 @@
+hostname Toronto
+!
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !        
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+no ip domain lookup
+!
+!
+!
+login on-success log
+ipv6 unicast-routing
+!
+!
+!
+!
+!
+spanning-tree extend system-id
+!
+!
+redundancy
+ mode none
+!
+!
+!
+!
+!
+crypto isakmp policy 12
+ encryption aes 256
+ hash sha512
+ authentication pre-share
+ group 14
+crypto isakmp key BSN12 address 0.0.0.0        
+!
+!
+crypto ipsec transform-set BSN12_TRANS esp-aes 256 esp-sha512-hmac 
+ mode transport
+!
+crypto ipsec profile BSN12_PROFILE
+ set transform-set BSN12_TRANS 
+!
+!
+!         
+!
+!
+!
+! 
+! 
+!
+!
+interface Loopback0
+ ip address 1.1.1.1 255.255.255.255
+ ospfv3 network point-to-point
+!
+interface Tunnel1
+ bandwidth 1000000
+ ip address 10.1.12.1 255.255.255.0
+ no ip redirects
+ ip nhrp authentication BSN
+ ip nhrp network-id 12
+ ip nhrp redirect
+ delay 10
+ tunnel source GigabitEthernet0/0/1.100
+ tunnel mode gre multipoint
+ tunnel key 12
+ tunnel protection ipsec profile BSN12_PROFILE
+!
+interface GigabitEthernet0/0/0
+ ip address 10.202.10.2 255.255.255.252
+ negotiation auto
+ mpls ip
+ mpls label protocol ldp
+!
+interface GigabitEthernet0/0/1
+ no ip address
+ negotiation auto
+!
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ ip address 172.16.1.1 255.255.255.0
+ ip nat inside
+ ip policy route-map Toronto-to-Ottawa-DMVPN
+ ipv6 enable
+ ospfv3 12 ipv4 area 0
+!
+interface GigabitEthernet0/0/1.100
+ encapsulation dot1Q 100
+ ip address 192.0.2.12 255.255.255.0
+ ip nat outside
+!
+interface GigabitEthernet0/0/2
+ no ip address
+ shutdown
+ negotiation auto
+!
+interface Serial0/1/0
+!
+interface Serial0/1/1
+!
+interface GigabitEthernet0
+ vrf forwarding Mgmt-intf
+ ip dhcp client client-id ascii FLM242611YL
+ ip address dhcp
+ shutdown
+ negotiation auto
+!
+!
+router eigrp OntarioTech12
+ !
+ address-family ipv4 unicast autonomous-system 12
+  !
+  af-interface Tunnel1
+   summary-address 172.16.0.0 255.255.0.0
+   no next-hop-self
+  exit-af-interface
+  !
+  topology base
+   redistribute ospfv3 12 metric 1000000 10 255 1 1500
+  exit-af-topology
+  network 10.1.12.0 0.0.0.255
+  eigrp router-id 1.1.1.1
+ exit-address-family
+!
+router ospfv3 12
+ router-id 1.1.1.1
+ auto-cost reference-bandwidth 100000
+ !
+ address-family ipv4 unicast
+  redistribute eigrp 12 metric-type 1
+ exit-address-family
+!
+router bgp 64612
+ bgp router-id 1.1.1.1
+ bgp log-neighbor-changes
+ neighbor 10.202.10.1 remote-as 65535
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 1.1.1.1 mask 255.255.255.255
+  redistribute ospf 12
+  neighbor 10.202.10.1 activate
+  neighbor 10.202.10.1 send-community
+  neighbor 10.202.10.1 allowas-in
+  neighbor 10.202.10.1 distribute-list TORONTO out
+ exit-address-family
+!
+ip forward-protocol nd
+ip http server
+ip http authentication local
+ip http secure-server
+ip http client source-interface GigabitEthernet0
+ip nat inside source list 1 interface GigabitEthernet0/0/1.100 overload
+ip route 0.0.0.0 0.0.0.0 192.0.2.254
+!
+ip bgp-community new-format
+!
+!
+!         
+ip prefix-list TORONTO seq 5 permit 172.16.0.0/20 ge 24
+ip prefix-list TORONTO seq 10 permit 1.1.1.1/32
+ip access-list standard 1
+ 10 permit 172.16.0.0 0.0.255.255
+ip access-list extended 112
+ 10 remark ACL matches TOR-SW1 Lo101 traffic
+ 10 permit ip 172.16.31.0 0.0.0.255 172.16.11.0 0.0.0.255
+!
+!
+route-map Toronto-to-Ottawa-DMVPN permit 10 
+ match ip address 112
+ set interface Tunnel1
+!
+route-map ISP-A-OUT permit 10 
+ match community 64612:12
+ set local-preference 112
+!
+mpls ldp router-id Loopback0 force
+!
+!
+!
+control-plane
+!         
+!
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+ stopbits 1
+line aux 0
+ stopbits 1
+line vty 0 4
+ login
+!
+!
+!
+!
+!
+!
+end
